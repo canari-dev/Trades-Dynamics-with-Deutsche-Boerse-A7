@@ -1,4 +1,4 @@
-# Trades-Dynamics-requires-Deutsche-Boerse-A7-access
+# Trades-Dynamics-(requires-Deutsche-Boerse-A7-access)
 Get a feel of trades driving the equity options market
 
 Abstract :
@@ -31,7 +31,11 @@ You must first get a Deutsche Boerse A7 subscription in ortder to access intrada
 Once you have your API key, you can run the Trades Dynamics Jupyter Notebook.
 
 You will need a Python 3.8 interpreter with the following packages :
-- QuantLib, numpy, pandas, math, datetime, matplotlib, sklearn, scipy, requests, warnings
+- QuantLib
+- numpy, pandas
+- math, datetime, matplotlib
+- sklearn, scipy
+- requests, warnings
 
 You will a need to download the ad hoc classes provided in this git :
 DateAndTime, PricingAnd Calibration, Clustering, TradeFlesh
