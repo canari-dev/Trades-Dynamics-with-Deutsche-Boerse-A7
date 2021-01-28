@@ -27,9 +27,7 @@ class TradeFlesh(Pricing):
 
         self.df_params = pd.read_pickle(self.folder2 + '/Params_' + self.udl + '.pkl')
 
-        print(self.df_params.shape)
         self.df_params = self.df_params.loc[self.df_params.Error < self.max_error]
-        print(self.df_params.shape)
 
         #get udl price at the time of trade
         for reference_date in self.DT.dates_list:
@@ -59,7 +57,7 @@ class TradeFlesh(Pricing):
                     self.df_params_matu = self.df_params_matu.reindex(newindex, method='ffill')  #if we take 'nearest', it is not consistant with building an indicator later
                     self.df_trades.loc[self.df_trades.matu == matu, ['spline_bid', 'spline_ask', 'FwdRatio', 'Spot', 'calib_ts']] = self.df_params_matu[['spline_bid', 'spline_ask', 'FwdRatio', 'Spot', 'calib_ts']]
             except:
-                print('no param for :' + matu)
+                print('no parameter for :' + matu)
 
         self.df_trades['d1'] = self.df_trades.dtf_d.apply(lambda x: ql.Date(x.day, x.month, x.year))
         self.df_trades['d2'] = self.df_trades.matu.apply(lambda x: pd.Timestamp(x).date())
@@ -140,7 +138,7 @@ class TradeFlesh(Pricing):
             ye = np.concatenate(([[0]*dfm.shape[0]], [(dfm.ask-dfm.bid).values]), axis=0)
             a[i, 0].errorbar(x, dfm['bid'].values, yerr=ye, fmt='none')
             # a[i, 0].get_legend().remove()
-            a[i, 0].set_title(matu, fontsize=8)
+            a[i, 0].set_title('maturity : ' + matu, fontsize=8)
             a[i, 0].set_xlabel('', fontsize=6)
             a[i, 0].set_ylabel('', fontsize=6)
 
@@ -149,7 +147,7 @@ class TradeFlesh(Pricing):
         shapes = {'black': 'x', 'blue': '', 'red': 'o'}
         linest = {'black': 'None', 'blue': '-', 'red': 'None'}
         lines = [Line2D([0], [0], color=c, linewidth=3, linestyle=linest[c], marker=shapes[c]) for c in colors]
-        labels = ['Trading Price', 'bid-offer spread', 'model bid&ask']
+        labels = ['Trading Price', 'bid-ask spread', 'model bid&ask']
         a.flatten()[-1].legend(lines, labels, bbox_to_anchor=(1, 1), bbox_transform=plt.gcf().transFigure)
         plt.gcf().autofmt_xdate()
         plt.show()
@@ -226,25 +224,15 @@ class TradeFlesh(Pricing):
                 ax[i, 0].spines['bottom'].set_position('zero')
                 ax3 = ax[i, 0].twinx()
                 rspine = ax3.spines['right']
-                # rspine.set_position(('axes', 1.15))
                 ax3.set_frame_on(True)
                 ax3.patch.set_visible(False)
                 fig.subplots_adjust(right=0.7)
 
                 ax[i, 0].bar(dfg.index.values, dfg[field + '_intensity'].values, width=0.001, color='green')
                 ax[i, 0].plot(dfg.index.values, dfg[field + '_intensity_ewma'].values, color='green')
-                ax[i, 0].set_title(matu, fontsize=8)
+                ax[i, 0].set_title('maturity ' + matu, fontsize=8)
                 ax3.plot(dfg.index, dfg[param[field]], color='DarkBlue')
                 ax3.plot(dfg.index, dfg[param[field]+'_ewma'], color='DarkBlue')
-                # dfg.index.values
-
-                # plt.tight_layout()
-                # dfg[field + '_intensity'].plot(ax=ax, style='b-', kind='bar')
-                # dfg[field + '_intensity_ewma'].plot(ax=ax, style='r-', secondary_y=True)
-                # dfg[param[field]].plot(ax=ax3, style='g-')
-
-                # add legend --> take advantage of pandas providing us access
-                # to the line associated with the right part of the axis
                 if i==0:
                     legend=ax3.legend([ax[i, 0].get_lines()[0], ax3.get_lines()[0]], \
                        [field + ' intensity', param[field]], bbox_to_anchor=(1, 1), fontsize=12)
