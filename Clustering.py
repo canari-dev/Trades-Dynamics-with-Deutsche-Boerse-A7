@@ -10,26 +10,29 @@ import scipy.cluster.hierarchy as shc
 
 class Clustering(DateAndTime):
 
-    def __init__(self, udl):
-        super(Clustering, self).__init__()
+    def __init__(self, udl, DT, folder2):
 
+        # super(Clustering, self).__init__()
         self.udl = udl
-        self.list_cols = ['tscale', 'interest_aggressivity', 'interest_side', 'interest_vega', 'moneyness', 'T']
+        self.folder2 = folder2
+        self.DT = DT
+        self.list_cols = ['tscale', 'interest_aggressivity', 'interest_vega', 'moneyness', 'T']
         self.factor = {'tscale': 10, 'interest_aggressivity': 1, 'interest_side': 0.2, 'interest_vega': 1, 'moneyness': 0.2, 'T': 2}
-        self.df_trades = pd.read_pickle(folder2 + '/FleshedTrades_' + self.udl + '.pkl')
-        self.cluster_ratio = 5
-        self.nPCA = 3
+        self.df_trades = pd.read_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
+        self.cluster_ratio = 3
+        self.nPCA = 2
 
-    def prepare_data(self, with_graph = False):
+    def prepare_data(self, with_graph=False):
         self.dft = self.df_trades.copy()
 
         tsini = self.dft.index[0]
-        self.dft['tscale'] = self.dft.apply(lambda x: self.time_between(tsini, x.name), axis=1)
+        self.dft['tscale'] = self.dft.apply(lambda x: self.DT.time_between(tsini, x.name), axis=1)
 
         self.dft.reset_index(inplace=True)
         self.dft = self.dft.loc[self.dft.pricable]
 
         self.dft['interest_aggressivity'] = abs(self.dft.aggressivity)
+
 
         # add trading mode (active or passive)
         self.dft['interest_side'] = self.dft.apply(lambda x: -1 if ((x.side==1) and (x.aggressivity>0)) or ((x.side==2) and (x.aggressivity<=0)) else 1, axis=1) #1 hit, -1 get hit
@@ -40,25 +43,18 @@ class Clustering(DateAndTime):
             self.dft[elt] = self.dft[elt] - self.dft[elt].mean()
             self.dft[elt] = self.dft[elt] / self.dft[elt].std() * self.factor[elt]
 
-        if with_graph:
-            aggdic = {elt: 'first' for elt in self.df_trades.columns}
-            aggdic['interest_aggressivity'] = sum
-            aggdic['moneyness'] = np.mean
-            self.dft = self.df_trades.groupby(self.df_trades.index).agg(aggdic)
-
-        X_normalized = self.dft[self.list_cols].values
-
-
+        print(self.dft[self.list_cols].head(5))
+        X_normalized = np.float64(self.dft[self.list_cols].values)
         pca = PCA(n_components=self.nPCA)
         X_principal = pca.fit_transform(X_normalized)
         X_principal = pd.DataFrame(X_principal)
         X_principal.columns = ['P'+str(i) for i in range(self.nPCA)]
 
-
-        # plt.figure(figsize=(8, 8))
-        # plt.title('Visualising the data')
-        # Dendrogram = shc.dendrogram((shc.linkage(X_principal, method='ward')))
-        # plt.show()
+        if with_graph:
+            plt.figure(figsize=(8, 8))
+            plt.title('Visualising the data')
+            Dendrogram = shc.dendrogram((shc.linkage(X_principal, method='ward')))
+            plt.show()
 
         self.ac = AgglomerativeClustering(compute_distances=True) #n_clusters=5)
         self.ac.fit(X_principal)
