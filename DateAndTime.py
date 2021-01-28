@@ -1,13 +1,13 @@
 from SetUp import *
 
 
-class DateAndTime(from_date = '2019-04-03', until_date = '2021-01-31'):
+class DateAndTime():
 
-    def __init__(self):
+    def __init__(self, from_date='2019-04-03', until_date='2021-01-31'):
 
         self.from_date = from_date
         self.until_date = until_date
-        self.last_matu = (self.until_date.to_pydatetime() + 365*2).strftime('%Y-%m-%d')
+
 
         time_fmt = "%H:%M"
         opening_hours_str, closing_hours_str = "07:00", "15:30"  # to be adjusted depending on summerwinter time
@@ -17,12 +17,19 @@ class DateAndTime(from_date = '2019-04-03', until_date = '2021-01-31'):
         self.day_count = ql.Business252()
         self.cal = ql.Germany()
 
-        # dates = list(pd.date_range(self.from_date, self.until_date, freq='D').strftime('%Y-%m-%d'))
+        #all dates
         dates_list = pd.date_range(self.from_date, self.until_date, freq='D')
         dates_list.freq = None
-        self.dates_list = [elt.strftime('%Y%m%d') for elt in dates_list if (elt.to_pydatetime().strftime("%A") not in ['Saturday', 'Sunday'])]
+        self.dates_list = [elt.strftime('%Y%m%d') for elt in dates_list if (pd.Timestamp(elt).date().strftime("%A") not in ['Saturday', 'Sunday'])]
 
-        dates_expi = list(pd.date_range('2017-01-01', self.last_matu, freq='W'))
+        #expi dates
+        self.first_matu = pd.Timestamp(self.from_date).date()
+        w = self.first_matu.weekday()
+        # Friday is weekday 4
+        if w != 4:
+            self.first_matu = self.first_matu.replace(day=(15 + (4 - w) % 7))
+        self.last_matu = (pd.Timestamp(until_date) + pd.DateOffset(years=2)).date().strftime('%Y-%m-%d')
+        dates_expi = list(pd.date_range(self.first_matu, self.last_matu, freq='W'))
         dates_expi = [elt - datetime.timedelta(2) for elt in dates_expi]
         dates_expi = [datetime.datetime.combine(elt, self.closing_hours) for elt in dates_expi if elt.day in [15, 16, 17, 18, 19, 20, 21]]
         self.dates_expi = [self.get_last_working(elt) for elt in dates_expi]

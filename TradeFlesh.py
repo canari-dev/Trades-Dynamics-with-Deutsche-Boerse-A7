@@ -6,30 +6,35 @@ from matplotlib.lines import Line2D
 
 class TradeFlesh(Pricing):
 
-    def __init__(self, udl):
+    def __init__(self, udl, DT, folder1, folder2):
+        self.DT = DT
         super(TradeFlesh, self).__init__()
+
         self.udl = udl
+        self.folder1 = folder1
+        self.folder2 = folder2
+
         self.max_error = 20
 
 
     def pct_aggressivity(self):
 
-        self.df_trades = pd.read_pickle(folder1 + '/Trades_' + self.udl + '.pkl')
+        self.df_trades = pd.read_pickle(self.folder1 + '/Trades_' + self.udl + '.pkl')
 
         self.df_trades = self.df_trades.sort_index()
         self.df_trades['dtf'] = pd.to_datetime(self.df_trades.index)
         self.df_trades['dtf_d'] = self.df_trades['dtf'].apply(lambda x: x.date())
 
-        self.df_params = pd.read_pickle(folder2 + '/Params_' + self.udl + '.pkl')
+        self.df_params = pd.read_pickle(self.folder2 + '/Params_' + self.udl + '.pkl')
 
         print(self.df_params.shape)
         self.df_params = self.df_params.loc[self.df_params.Error < self.max_error]
         print(self.df_params.shape)
 
         #get udl price at the time of trade
-        for reference_date in self.dates_list:
+        for reference_date in self.DT.dates_list:
             try:
-                self.df_udl = pd.read_pickle(folder1 + '/raw/Quotes_' + '{}_{}.pkl'.format(self.udl, reference_date))
+                self.df_udl = pd.read_pickle(self.folder1 + '/raw/Quotes_' + '{}_{}.pkl'.format(self.udl, reference_date))
                 self.df_udl = self.df_udl.loc[self.df_udl.matu == 'UDL']
                 self.df_udl_bid = self.df_udl.loc[self.df_udl.bidask == 'bid']
                 self.df_udl_ask = self.df_udl.loc[self.df_udl.bidask == 'ask']
@@ -59,7 +64,7 @@ class TradeFlesh(Pricing):
         self.df_trades['d1'] = self.df_trades.dtf_d.apply(lambda x: ql.Date(x.day, x.month, x.year))
         self.df_trades['d2'] = self.df_trades.matu.apply(lambda x: pd.Timestamp(x).date())
         self.df_trades['d2'] = self.df_trades.d2.apply(lambda x: ql.Date(x.day, x.month, x.year))
-        self.df_trades['T'] = self.df_trades.apply(lambda opt: self.cal.businessDaysBetween(opt.d1, opt.d2) / 252.0, axis='columns')
+        self.df_trades['T'] = self.df_trades.apply(lambda opt: self.DT.cal.businessDaysBetween(opt.d1, opt.d2) / 252.0, axis='columns')
 
         self.df_trades['pricable'] = ~self.df_trades.calib_ts.isnull()
 
@@ -84,7 +89,7 @@ class TradeFlesh(Pricing):
 
         self.df_trades['pricable'] = self.df_trades.pricable & (~self.df_trades.aggressivity.isnull())
         self.df_trades.drop(['d1', 'd2'], axis=1, inplace=True) #cannot be pickled as it is a quantlib object
-        self.df_trades.to_pickle(folder2 + '/FleshedTrades_' + self.udl + '.pkl')
+        self.df_trades.to_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
 
 
     def get_aggressivity(self, opt):
@@ -98,7 +103,7 @@ class TradeFlesh(Pricing):
 
     def graph_aggressivity(self, gdate, highlight_cluster=[]):
 
-        self.df_trades = pd.read_pickle(folder2 + '/FleshedTrades_' + self.udl + '.pkl')
+        self.df_trades = pd.read_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
         self.df_trades['sz'] = [64 if elt in highlight_cluster else 8 for elt in range(self.df_trades.shape[0])]
 
         dtf = pd.to_datetime(gdate).date()
@@ -151,7 +156,7 @@ class TradeFlesh(Pricing):
 
 
     def get_intensity(self):
-        self.df_trades = pd.read_pickle(folder2 + '/FleshedTrades_' + self.udl + '.pkl')
+        self.df_trades = pd.read_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
         self.df_trades['d1'] = self.df_trades.dtf_d.apply(lambda x: ql.Date(x.day, x.month, x.year))
         self.df_trades['d2'] = self.df_trades.matu.apply(lambda x: pd.Timestamp(x).date())
         self.df_trades['d2'] = self.df_trades.d2.apply(lambda x: ql.Date(x.day, x.month, x.year))
@@ -169,15 +174,15 @@ class TradeFlesh(Pricing):
         self.df_trades['delta_intensity'] = self.df_trades.volume * self.df_trades.ContractMultiplier * self.df_trades.delta * self.df_trades.FVU * self.df_trades.aggressivity
 
         self.df_trades.drop(['d1', 'd2'], axis=1, inplace=True)  # cannot be pickled as it is a quantlib object
-        self.df_trades.to_pickle(folder2 + '/FleshedTrades_' + self.udl + '.pkl')
+        self.df_trades.to_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
 
 
     def graph_sensitivity(self, field, day):
 
         param = {'vega': 'iv', 'delta': 'FwdRatio'}
-        self.df_trades = pd.read_pickle(folder2 + '/FleshedTrades_' + self.udl + '.pkl')
+        self.df_trades = pd.read_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
 
-        self.df_params = pd.read_pickle(folder2 + '/Params_' + self.udl + '.pkl')
+        self.df_params = pd.read_pickle(self.folder2 + '/Params_' + self.udl + '.pkl')
         self.df_params = self.df_params.loc[self.df_params.Error < self.max_error]
 
         #select day
@@ -188,6 +193,7 @@ class TradeFlesh(Pricing):
 
         matu_list = sorted(list(set([elt[1] for elt in self.df_params.index])))
         matu_list = [elt for elt in matu_list if (pd.Timestamp(elt).date().month in [3,6,9,12]) and ((pd.Timestamp(elt) - pd.Timestamp(day)).total_seconds() < 60*60*24*365)]
+
         ncols = 1
         nrows = len(matu_list)
 
