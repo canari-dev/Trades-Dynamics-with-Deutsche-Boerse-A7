@@ -17,10 +17,10 @@ class Clustering(DateAndTime):
         self.folder2 = folder2
         self.DT = DT
         self.list_cols = ['tscale', 'interest_aggressivity', 'interest_vega', 'moneyness', 'T']
-        self.factor = {'tscale': 10, 'interest_aggressivity': 1, 'interest_side': 0.2, 'interest_vega': 1, 'moneyness': 0.2, 'T': 2}
+        self.factor = {'tscale': 10, 'interest_aggressivity': 1, 'interest_side': 0.3, 'interest_vega': 1, 'moneyness': 0.2, 'T': 2}
         self.df_trades = pd.read_pickle(self.folder2 + '/FleshedTrades_' + self.udl + '.pkl')
-        self.cluster_ratio = 3
-        self.nPCA = 2
+        self.cluster_ratio = 4
+
 
     def prepare_data(self, with_graph=False):
         self.dft = self.df_trades.copy()
@@ -43,24 +43,24 @@ class Clustering(DateAndTime):
             self.dft[elt] = self.dft[elt] - self.dft[elt].mean()
             self.dft[elt] = self.dft[elt] / self.dft[elt].std() * self.factor[elt]
 
-        print(self.dft[self.list_cols].head(5))
-        X_normalized = np.float64(self.dft[self.list_cols].values)
-        pca = PCA(n_components=self.nPCA)
-        X_principal = pca.fit_transform(X_normalized)
-        X_principal = pd.DataFrame(X_principal)
-        X_principal.columns = ['P'+str(i) for i in range(self.nPCA)]
+        X_normalized = self.dft[self.list_cols]
+        #  = np.float64(self.dft[self.list_cols].values)
+        # pca = PCA(n_components=self.nPCA)
+        # X_principal = pca.fit_transform(X_normalized)
+        # X_principal = pd.DataFrame(X_principal)
+        # X_principal.columns = ['P'+str(i) for i in range(self.nPCA)]
 
         if with_graph:
             plt.figure(figsize=(8, 8))
-            plt.title('Visualising the data')
-            Dendrogram = shc.dendrogram((shc.linkage(X_principal, method='ward')))
+            plt.title('Visualising cluster selection mechanism')
+            Dendrogram = shc.dendrogram((shc.linkage(X_normalized, method='ward')))
             plt.show()
 
         self.ac = AgglomerativeClustering(compute_distances=True) #n_clusters=5)
-        self.ac.fit(X_principal)
+        self.ac.fit(X_normalized)
 
         self.nodes_dic = dict(enumerate(self.ac.children_, self.ac.n_leaves_))
-        self.N = X_principal.shape[0]
+        self.N = X_normalized.shape[0]
 
         self.clusters = []
         self.get_clusters(list(self.nodes_dic.keys())[-1])
@@ -84,11 +84,14 @@ class Clustering(DateAndTime):
         self.df_clusters['compo_in_df_trades'] = self.df_clusters['compo'].apply(lambda x: self.dft.iloc[x, :].index.tolist())
 
     def display_clusters(self, n=3):
+        print('Here are the most important clusters sorted by vega intensity\n')
         print(self.df_clusters[['timespan', 'vega_intensity', 'delta_intensity']].head(n))
         print('')
-        disp_cols = ['time', 'matu', 'qty', 'PutOrCall', 'StrikePrice', 'side', 'px', 'bid', 'ask', 'aggressivity', 'vega_intensity', 'interest_aggressivity', 'interest_side', 'interest_vega']
+        disp_cols = ['time', 'matu', 'qty', 'PutOrCall', 'StrikePrice', 'side', 'px', 'bid', 'ask', 'aggressivity', 'vega_intensity']
 
+        print('And here are the trades forming each of these clusters')
         for i in range(n):
+            print('cluster number :' + str(i) + '\n')
             print(self.dft.loc[self.df_clusters.iloc[i, :]['compo_in_df_trades'], :][disp_cols])
             print('')
 
@@ -120,7 +123,7 @@ class Clustering(DateAndTime):
     def analyse_clusters(self):
         self.df_clusters = pd.DataFrame()
         self.df_clusters['compo'] = self.clusters
-        self.df_clusters['timespan'] = self.df_clusters.compo.apply(lambda x: self.time_between(self.dft.iloc[min(x)]['time'], self.dft.iloc[max(x)]['time'])*252) # in days with night being worth 4 hours
+        self.df_clusters['timespan'] = self.df_clusters.compo.apply(lambda x: self.DT.time_between(self.dft.iloc[min(x)]['time'], self.dft.iloc[max(x)]['time'])*252) # in days with night being worth 4 hours
         self.df_clusters['vega_intensity'] = self.df_clusters.compo.apply(lambda x: self.dft.iloc[x, :]['vega_intensity'].sum())
         self.df_clusters['delta_intensity'] = self.df_clusters.compo.apply(lambda x: self.dft.iloc[x, :]['delta_intensity'].sum())
 

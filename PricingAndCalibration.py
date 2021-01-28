@@ -443,9 +443,10 @@ class FittingSpline(Pricing):
 
         f.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.12, hspace = 1)  # create some space below the plots by increasing the bottom-value
         a.flatten()[-1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=ncols)
-
         plt.show()
 
+        print('')
+        print('')
 
         ncols = 2
         nrows = len(selected_slices)
