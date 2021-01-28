@@ -1,15 +1,14 @@
 from SetUp import *
 from DateAndTime import DateAndTime
-import scipy.stats as si
 from scipy.interpolate import UnivariateSpline
 import statsmodels.api as sm
 
 
-class Pricing(DateAndTime):
+class Pricing():
 
     def __init__(self):
-        super(Pricing, self).__init__()
-
+        # super(Pricing, self).__init__()
+        # self.DT = DT
         self.smile_sliding_coef = 1
         self.moneyness_range = (-0.6, 0.6) #for 1 year, in sqrt(T)
 
@@ -31,9 +30,9 @@ class Pricing(DateAndTime):
         spot_handle = ql.QuoteHandle(ql.SimpleQuote(S))
 
         flat_ts = ql.YieldTermStructureHandle(
-            ql.FlatForward(d1, risk_free_rate, self.day_count))
-        dividend_yield = ql.YieldTermStructureHandle(ql.FlatForward(d1, repo, self.day_count))
-        flat_vol_ts = ql.BlackVolTermStructureHandle(ql.BlackConstantVol(d1, self.cal, sigma, self.day_count))
+            ql.FlatForward(d1, risk_free_rate, self.DT.day_count))
+        dividend_yield = ql.YieldTermStructureHandle(ql.FlatForward(d1, repo, self.DT.day_count))
+        flat_vol_ts = ql.BlackVolTermStructureHandle(ql.BlackConstantVol(d1, self.DT.cal, sigma, self.DT.day_count))
         bsm_process = ql.BlackScholesMertonProcess(spot_handle, dividend_yield, flat_ts, flat_vol_ts)
         binomial_engine = ql.BinomialVanillaEngine(bsm_process, "crr", N)
         american_option.setPricingEngine(binomial_engine)
@@ -45,7 +44,7 @@ class Pricing(DateAndTime):
             price = american_option.NPV()
             american_option_shock = ql.VanillaOption(payoff, am_exercise)
             flat_vol_ts_shock = ql.BlackVolTermStructureHandle(
-                ql.BlackConstantVol(d1, self.cal, sigma+0.01, self.day_count))
+                ql.BlackConstantVol(d1, self.DT.cal, sigma+0.01, self.DT.day_count))
             bsm_process_shock = ql.BlackScholesMertonProcess(spot_handle, dividend_yield, flat_ts, flat_vol_ts_shock)
             binomial_engine_shock = ql.BinomialVanillaEngine(bsm_process_shock, "crr", N)
             american_option_shock.setPricingEngine(binomial_engine_shock)
@@ -83,13 +82,13 @@ class Pricing(DateAndTime):
         spot_handle = ql.QuoteHandle(ql.SimpleQuote(S))
 
         flat_ts = ql.YieldTermStructureHandle(
-            ql.FlatForward(d1, risk_free_rate, self.day_count)
+            ql.FlatForward(d1, risk_free_rate, self.DT.day_count)
         )
         dividend_yield = ql.YieldTermStructureHandle(
-            ql.FlatForward(d1, repo, self.day_count)
+            ql.FlatForward(d1, repo, self.DT.day_count)
         )
         flat_vol_ts = ql.BlackVolTermStructureHandle(
-            ql.BlackConstantVol(d1, self.cal, sigma, self.day_count))
+            ql.BlackConstantVol(d1, self.DT.cal, sigma, self.DT.day_count))
 
         # vol_quote = ql.SimpleQuote(sigma)
 
@@ -115,7 +114,7 @@ class Pricing(DateAndTime):
         elif type=='0':
             type = "Put"
 
-        T = self.cal.businessDaysBetween(self.d1, self.d2) / 252.0
+        T = self.DT.cal.businessDaysBetween(self.d1, self.d2) / 252.0
 
         indic = abs(1 - fwdRatio) / max(1.0 / 12.0, T) ** 0.5
         # not taking moneyness into account because all calls must have same method + only OTM calls anyway
@@ -197,16 +196,27 @@ class Pricing(DateAndTime):
         return price
 
 
+    def pcal6(self, opt, field=''):
+        r = 0
+        self.d1 = opt.name.date()
+        self.d2 = pd.Timestamp(opt.matu).date()
+        self.d1 = ql.Date(self.d1.day, self.d1.month, self.d1.year)
+        self.d2 = ql.Date(self.d2.day, self.d2.month, self.d2.year)
+        price = self.vanilla_pricer(opt.FVU, opt.StrikePrice, r, opt[field+'_iv'], opt.FwdRatio, opt.PutOrCall, opt.ExerciseStyle, greek='')
+        return price
+
 
 
 class FittingSpline(Pricing):
 
-    def __init__(self, udl):
-
+    def __init__(self, udl, DT, folder1, folder2):
+        self.DT = DT
         super(FittingSpline, self).__init__()
         self.udl = udl
+        self.folder1 = folder1
+        self.folder2 = folder2
 
-        self.df_all = pd.read_pickle(folder1 + '/Quotes_' + self.udl + '_1.pkl') #_1
+        self.df_all = pd.read_pickle(self.folder1 + '/Quotes_' + self.udl + '.pkl')
 
         #filter quotes
         self.df_all = self.df_all.loc[(self.df_all.bid!=0) & (self.df_all.ask!=0)]
@@ -220,7 +230,7 @@ class FittingSpline(Pricing):
         self.max_error = 8 #in bps
 
         try:
-            self.df_params = pd.read_pickle(folder2 + '/Params_' + self.udl + '.pkl')
+            self.df_params = pd.read_pickle(self.folder2 + '/Params_' + self.udl + '.pkl')
         except:
             mi = pd.MultiIndex(levels=[[], []],
                           codes=[[], []],
@@ -232,16 +242,16 @@ class FittingSpline(Pricing):
 
         done_already = [elt.strftime('%Y%m%d') for elt in set([elt.date() for elt in self.df_params.index.get_level_values(0)])]
 
-        for reference_date in [elt for elt in self.dates_list if (elt not in done_already)]:  #['20190606']
+        for reference_date in [elt for elt in self.DT.dates_list if (elt not in done_already)]:  #['20190606']
             print(reference_date)
-            matulist = [elt for elt in self.get_matu_list(reference_date) if elt != reference_date]
+            matulist = [elt for elt in self.DT.get_matu_list(reference_date) if elt != reference_date]
             # matulist = ['20201218']
             for matu in matulist:
                 print('   ' + matu)
                 self.ini_day(reference_date, matu)
                 self.fit_day()
 
-            self.df_params.to_pickle(folder2 + '/Params_' + self.udl + '.pkl')
+            self.df_params.to_pickle(self.folder2 + '/Params_' + self.udl + '.pkl')
 
 
     def ini_day(self, present_date, maturity_date):
@@ -278,7 +288,7 @@ class FittingSpline(Pricing):
         if self.df.shape[0] > 0:
             self.FVU = self.df.FVU[0]
             # self.T = time_between(self.present_date, self.maturity_date)
-            self.T = self.cal.businessDaysBetween(self.d1, self.d2) / 252.0
+            self.T = self.DT.cal.businessDaysBetween(self.d1, self.d2) / 252.0
             self.df['moneyness_T'] = self.df.apply(lambda opt: math.log(opt.StrikePrice / opt.FVU * 0.98)/(max(3.0/12.0, self.T)**0.5), axis='columns')
             self.df = self.df.loc[(self.df.moneyness_T > self.moneyness_range[0]) & (self.df.moneyness_T < self.moneyness_range[1])]
 
@@ -295,7 +305,6 @@ class FittingSpline(Pricing):
                 self.df_params.loc[(self.time_slice, self.maturity_date_str), :] = self.vol_spline_bid, self.vol_spline_ask, self.FwdRatio, self.FVU, self.error, self.Fwd_computed
             # print(self.iter)
 
-        # self.df_params.to_pickle(folder2 + '/Params_' + self.udl + '.pkl')
 
 
     def get_new_vol_params(self, time_slice):
@@ -398,32 +407,30 @@ class FittingSpline(Pricing):
 
     def graph(self, day, matu):
 
-        self.df_params = pd.read_pickle(folder2 + '/Params_' + self.udl + '.pkl')
+        self.df_params = pd.read_pickle(self.folder2 + '/Params_' + self.udl + '.pkl')
         self.ini_day(day, matu)
-        # self.df_params = self.df_params.loc[self.df_params.matu == matu]
         self.df_params_matu = self.df_params.xs(matu, level=1, drop_level=True)
-        self.df_params_matu = self.df_params_matu.loc[self.df_params_matu.precision < 20]
+        self.df_params_matu = self.df_params_matu.loc[self.df_params_matu.Error < 20]
         self.df_params_matu['day'] = self.df_params_matu.index
         self.df_params_matu['day'] = self.df_params_matu.day.apply(lambda x: x.date())
         self.df_params_matu = self.df_params_matu.loc[self.df_params_matu.day == pd.Timestamp(day).date()]
 
-        selected_slices = sorted(list(set(self.df.index)))[120::120]  # [120::120]
+        selected_slices = sorted(list(set(self.df_params_matu.index)))[24::24]  # [120::120]
         self.df_graph = pd.merge(self.df.loc[selected_slices], self.df_params_matu, how='left', left_index=True, right_index=True)
         self.df_graph.dropna(subset=['spline_bid', 'spline_ask'], inplace=True)
         selected_slices = [elt for elt in selected_slices if elt in self.df_graph.index]
 
         self.df_graph['moneyness'] = self.df_graph.apply(lambda opt: math.log(opt.StrikePrice / opt.FVU * opt.FwdRatio), axis='columns') # math.log(opt.StrikePrice / opt.FVU * opt.FwdRatio)
 
-        self.df_graph['iv_bid'] = self.df_graph.apply(lambda opt: float(opt.spline_bid(opt.moneyness)), axis='columns')
-        self.df_graph['iv_ask'] = self.df_graph.apply(lambda opt: float(opt.spline_ask(opt.moneyness)), axis='columns')
+        self.df_graph['bid_iv'] = self.df_graph.apply(lambda opt: float(opt.spline_bid(opt.moneyness)), axis='columns')
+        self.df_graph['ask_iv'] = self.df_graph.apply(lambda opt: float(opt.spline_ask(opt.moneyness)), axis='columns')
 
-        self.df_graph['fv_bid'] = self.df_graph.apply(lambda opt: self.vanilla_pricer(opt.FVU, opt.StrikePrice, opt['T'], 0, opt.iv_bid, opt.FwdRatio, opt.PutOrCall, opt.ExerciseStyle), axis='columns')
-        self.df_graph['fv_ask'] = self.df_graph.apply(lambda opt: self.vanilla_pricer(opt.FVU, opt.StrikePrice, opt['T'], 0, opt.iv_ask, opt.FwdRatio, opt.PutOrCall, opt.ExerciseStyle), axis='columns')
+        self.df_graph['fv_bid'] = self.df_graph.apply(lambda opt: self.pcal6(opt, 'bid'), axis='columns')
+        self.df_graph['fv_ask'] = self.df_graph.apply(lambda opt: self.pcal6(opt, 'ask'), axis='columns')
 
         self.df_graph['time_slice'] = self.df_graph.index
 
-        self.df_graph_pt1 = self.df_graph.pivot_table(index=['time_slice', 'moneyness'],
-                                                      values=['iv_bid', 'iv_ask'])
+        self.df_graph_pt1 = self.df_graph.pivot_table(index=['time_slice', 'moneyness'], values=['bid_iv', 'ask_iv'])
         ncols = 1
         nrows = math.ceil(len(selected_slices)/ncols)
 
@@ -434,8 +441,7 @@ class FittingSpline(Pricing):
             a[int(i/ncols), i % ncols].set_title(time_slice.to_pydatetime().strftime("%H:%M:%S"), fontsize=6)
             a[int(i/ncols), i % ncols].set_xlabel('')
 
-        f.subplots_adjust(top=0.9, left=0.1, right=0.9,
-                            bottom=0.12, hspace = 1)  # create some space below the plots by increasing the bottom-value
+        f.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.12, hspace = 1)  # create some space below the plots by increasing the bottom-value
         a.flatten()[-1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=ncols)
 
         plt.show()
@@ -464,7 +470,6 @@ class FittingSpline(Pricing):
         f.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.12, hspace=1)  # create some space below the plots by increasing the bottom-value
         a.flatten()[-2].legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=ncols)
         plt.show()
-
 
 if __name__ == '__main__':
     udl = 'DBK'
