@@ -1,209 +1,254 @@
 - title: Config
   content: |
+    // MDA::Config initialization list
     MDA::Config {
       "minsize_level",
       "aggregated upto finding <min_lots> as quantity",
-      {
-        { "min_lots", { "number of lots <min_lots> (<min_lots> > 0)", Parameter::Type::Int32, "1" } },
-        { "from_h", { "from hour (0 <= <from_h> < 24) in CET time zone", Parameter::Type::Int8, "9" } },
-        { "from_m", { "from minute (0 <= <from_m> < 60)", Parameter::Type::Int8, "0" } },
-        { "to_h", { "to hour (0 <= <to_h> < 24) in CET time zone", Parameter::Type::Int8, "17" } },
-        { "to_m", { "to minute (0 <= <to_m> < 60)", Parameter::Type::Int8, "30" } },
-        { "ts_step", { "step in minutes (<step_m> > 0)", Parameter::Type::Int32, "15" } }
+      { // parameter configuration
+        //{ "<name>", { "<description>", <type>, "<default_value>" } }
+          {   pmin_lots, { "number of lots <min_lots> (<min_lots> > 0)", Parameter::Type::Int32, "1" } },
+          { pTimeBin, { "in minutes bins the results into buckets (minimal value is 1 minute; max value is 60 minutes)", Parameter::Type::Int64, "1" } }
       },
-      {
-        {
-          "price",
-          "vwap price",
-          ResultSet::Type::Series,
-          {
-            { "ts", "timestamp", Result::Type::Timestamp },
-            { "bid", "bid", Result::Type::Double },
-            { "ask", "ask", Result::Type::Double }
-          }
-        },
-        {
+      { // result configuration
+        { "message",
           "message",
-          "parameter conversion error message",
           ResultSet::Type::Value,
           {
+            // { "<name>", "<description>", <type> },
             { "text", "error message", Result::Type::String }
+          }
+        },
+        { "bid",
+          "bid",
+          ResultSet::Type::Series,
+          {
+            // { "<name>", "<description>", <type> },
+            { "ts", "timestamp", Result::Type::Timestamp },
+            { "price", "price", Result::Type::Double }
+          }
+        },
+        { "ask",
+          "ask",
+          ResultSet::Type::Series,
+          {
+            // { "<name>", "<description>", <type> },
+            { "ts", "timestamp", Result::Type::Timestamp },
+            { "price", "price", Result::Type::Double }
           }
         }
       }
     }
+    
+    
+    
+    
     
 - title: Context.h
   content: |
     #include <eobi/EobiUtil.h>
     #include <util/novalue.h>
+    // you may add additional includes here, as this is the only place you may do so
     
-    #define NO_VALUE_DOUBLE noValue<double>()
-    #define PRC_DCM 100000000.0
+    // parameter titles
+    static constexpr const char* const pmin_lots = "min_lots";
+    static constexpr const char* const pTimeBin = "aggr";
     
-    #define CATCH_CONVERTION_ERROR(pn, p) \
-    catch (const std::invalid_argument& ia) { \
-      if (context.message.size() > 0) context.message.append("\n"); \
-      context.message.append("Invalid argument exception when parsing ").append(pn).append(" \'").append(p).append("\' parameter; using default value."); \
-      setResultmessage(context.message); \
-    } \
-    catch (const std::out_of_range& oor) { \
-      if (context.message.size() > 0) context.message.append("\n"); \
-      context.message.append("Out-of-range exception when parsing ").append(pn).append(" \'").append(p).append("\' parameter; using default value."); \
-      setResultmessage(context.message); \
+    #define ADD_RES(member)                                                \
+    if (context.ts ## member [0] == context.ts ## member [1]) {                \
+      addResult ## member(context.ts ## member[0], context.v ## member[0] != noValue<double>() ? context.v ## member[0] / 100000000.0 : noValue<double>()); \
+    } else if(context.ts ## member[0] < context.ts ## member[1]) {             \
+      addResult ## member(context.ts ## member[0], context.v ## member[0] != noValue<double>() ? context.v ## member[0] / 100000000.0 : noValue<double>()); \
+      addResult ## member(context.ts ## member[1], context.v ## member[1] != noValue<double>() ? context.v ## member[1] / 100000000.0 : noValue<double>()); \
+      context.ts ## member[0] = context.ts ## member[1];                       \
+    } else {                                                                   \
+      addResult ## member(context.ts ## member[1], context.v ## member[1] != noValue<double>() ? context.v ## member[1] / 100000000.0 : noValue<double>()); \
+      addResult ## member(context.ts ## member[0], context.v ## member[0] != noValue<double>() ? context.v ## member[0] / 100000000.0 : noValue<double>()); \
+      context.ts ## member[1] = context.ts ## member[0];                       \
     }
     
+    #define CATCH_CONVERTION_ERROR(pn,p)                                                                    			   \
+    catch (const std::invalid_argument& ia) {                                                            				   \
+      if (context.sMessage.size() > 0) context.sMessage.append(" ");                                                       \
+      context.sMessage.append("Invalid argument exception when parsing ").append(pn).append(" \'").append(p).append("\'"); \
+      setResultmessage(context.sMessage);                                                                                  \
+    }                                                                                                       			   \
+    catch (const std::out_of_range& oor) {                                                                  			   \
+      if (context.sMessage.size() > 0) context.sMessage.append(" ");                                                       \
+      context.sMessage.append("Out-of-range exception when parsing ").append(pn).append(" \'").append(p).append("\'");     \
+      setResultmessage(context.sMessage);                                                                                  \
+    }
+    
+    /**
+     * This is the place, you may store intermediary values for your calculation.
+     *  The same Context object will be available in _every_ callback
+     */
     struct Context {
+        // please take care of constructing/destroying your structures with care,
+        // as this directly affects your performance
+      Context()
+        : min_lots(1), tb(60000000000UL), ts(0)
+      , tsbid{ 0, 0 }, tsask{ 0, 0 }, vbid{ noValue<double>(), noValue<double>() }, vask{ noValue<double>(), noValue<double>() }
+      , sMessage("")
+      {}
+      
     public:
-      int64_t min_lots = 10000L;
-      uint8_t from_h = 9;
-      uint8_t from_m = 0;
-      uint8_t to_h = 17;
-      uint8_t to_m = 30;
-      uint64_t ts_e, ts_n;
-      uint64_t ts_step = 900000000000UL;
+      uint16_t min_lots;
+      uint64_t tb;
       
-      uint64_t ts = NO_VALUE_ULONG;
-      double bid, ask;
-      
-      std::string message = "";
+      uint64_t ts;
+      uint64_t tsbid[2];
+      uint64_t tsask[2];
+      float_t vbid[2];
+      float_t vask[2];
+      //int64_t
+      std::string sMessage;
     };
+    
+    
+    
+    
     
 - title: onComplete
   content: |
-    if (context.ts != NO_VALUE_ULONG) addResultprice(context.ts_n, context.bid != NO_VALUE_DOUBLE ? context.bid / PRC_DCM : NO_VALUE_DOUBLE, context.ask != NO_VALUE_DOUBLE ? context.ask / PRC_DCM : NO_VALUE_DOUBLE);
+    // for information about the data structures please consult the T7 EOBI Market data Interface Manual
+    // note: code completion help is accessible with <Ctrl><Space>
+    // bool on Complete(const MDA::AlgoBase::Key& key, const Complete& obj, Context& context) {
+        // place add your code here
+    
+    if (context.vbid[0] != noValue<double>() || context.vbid[1] != noValue<double>() || context.vask[0] != noValue<double>() || context.vask[1] != noValue<double>()) {
+      ADD_RES(bid)
+      ADD_RES(ask)
+    }
+    
+        // return true;
+    //}
+    
+    
+    
+    
     
 - title: onOrderbook
   content: |
-    if (context.ts != NO_VALUE_ULONG) {
-      if (obj.ts > context.ts_n) {
-        addResultprice(context.ts_n, context.bid != NO_VALUE_DOUBLE ? context.bid / PRC_DCM : NO_VALUE_DOUBLE, context.ask != NO_VALUE_DOUBLE ? context.ask / PRC_DCM : NO_VALUE_DOUBLE);
-        if (context.ts_n < context.ts_e) {
-          context.ts_n += context.ts_step;
-          if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
-          while (obj.ts > context.ts_n) {
-            addResultprice(context.ts_n, context.bid != NO_VALUE_DOUBLE ? context.bid / PRC_DCM : NO_VALUE_DOUBLE, context.ask != NO_VALUE_DOUBLE ? context.ask / PRC_DCM : NO_VALUE_DOUBLE);
-            if (context.ts_n < context.ts_e) {
-              context.ts_n += context.ts_step;
-              if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
-            } else break;
-          }
-        }
+    // for information about the data structures please consult the T7 EOBI Market data Interface Manual
+    // note: code completion help is accessible with <Ctrl><Space>
+    // bool on Orderbook(const MDA::AlgoBase::Key& key, const Orderbook& obj, Context& context) {
+        // place add your code here
+    
+    if(context.ts != 0) {
+      if(context.ts < obj.ts) {
+        ADD_RES(bid)
+        ADD_RES(ask)
+        context.vbid[0] = context.vbid[1] = context.vask[0] = context.vask[1] = noValue<double>();
+        context.ts = context.tb + obj.ts;
       }
-    } else {
-      while (obj.ts > context.ts_n) {
-        if (context.ts_n < context.ts_e) {
-          context.ts_n += context.ts_step;
-          if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
-        } else break;
-      }
+    } else context.ts = context.tb + obj.ts;
+    
+    // namespace Eobi {
+    //   using Market				= std::string;
+    //   using MarketSegmentID		= int32_t;
+    //   using SecurityID			= int64_t;
+    //   using Timestamp			= uint64_t;	
+    //   using Price				= int64_t;
+    //   using InstrProductComplex	= uint8_t;
+    //
+    //   typedef std::vector<Trade> TradeList;
+    //
+    //   class Orderbook {
+    //     typedef std::map<Price, min_lots*, std::greater<Price> > BidMap;
+    //     typedef std::map<Price, min_lots*, std::less   <Price> > AskMap;
+    //   }
+    // }
+    
+    const Eobi::Orderbook::BidMap& bids = obj.getBids();
+    const Eobi::Orderbook::AskMap& asks = obj.getAsks();
+    // const Eobi::TradeList& trades = obj.getTrades();
+    
+    float bid = 0;
+    int64_t bidsize = 0;
+    float this_bid = 0;
+    int64_t this_bidsize = 0;
+    float ask = 0;
+    int64_t asksize = 0;
+    float this_ask = 0;
+    int64_t this_asksize = 0;
+    
+    uint16_t min_lots = context.min_lots;
+    auto it_bids = bids.cbegin();
+    while (it_bids != bids.cend()) {
+      this_bid = it_bids->first;
+      this_bidsize = it_bids->second->qty();
+      this_bidsize = std::min(this_bidsize, min_lots * 10000 - bidsize);
+      bid = (bid*bidsize + this_bid*this_bidsize) / (bidsize + this_bidsize);
+      bidsize += this_bidsize;
+      if (bidsize < min_lots * 10000) ++it_bids; else break;
     }
-    if (obj.ts > context.ts_e) context.ts = NO_VALUE_ULONG;
-    else {
-      context.ts = obj.ts;
-      
-      const Eobi::Orderbook::BidMap& bids = obj.getBids();
-      const Eobi::Orderbook::AskMap& asks = obj.getAsks();
-      
-      context.bid = context.ask = NO_VALUE_DOUBLE;
-      
-      int64_t size = 0L;
-      int64_t this_size;
-      
-      auto it_bids = bids.cbegin();
-      while (it_bids != bids.cend()) {
-        if (context.bid == NO_VALUE_DOUBLE) {
-          context.bid = it_bids->first;
-          size = it_bids->second->qty();
-        } else {
-          this_size = std::min(it_bids->second->qty(), context.min_lots - size);
-          context.bid = context.bid * size + it_bids->first * this_size;
-          size += this_size;
-          context.bid /= size;
-        }
-        if (size < context.min_lots) ++it_bids; else break;
-      }
-      
-      size = 0L;
-      auto it_asks = asks.cbegin();
-      while (it_asks != asks.cend()) {
-        if (context.ask == NO_VALUE_DOUBLE) {
-          context.ask = it_asks->first;
-          size = it_asks->second->qty();
-        } else {
-          this_size = std::min(it_asks->second->qty(), context.min_lots - size);
-          context.ask = context.ask * size + it_asks->first * this_size;
-          size += this_size;
-          context.ask /= size;
-        }
-        if (size < context.min_lots) ++it_asks; else break;
-      }
+    if (bidsize < min_lots * 10000) {
+      bid = 0; }
+    
+    
+    auto it_asks = asks.cbegin();
+    while (it_asks != asks.cend()) {
+      this_ask = it_asks->first;
+      this_asksize = it_asks->second->qty();
+      this_asksize = std::min(this_asksize, min_lots * 10000 - asksize);
+      ask = (ask*asksize + this_ask*this_asksize) / (asksize + this_asksize);
+      asksize += this_asksize;
+      if (asksize < min_lots * 10000) ++it_asks; else break;
     }
+    if (asksize < min_lots * 10000) {
+      ask = 0; }
+    
+    if(context.vbid[0] == noValue<double>() || bid < context.vbid[0]) {
+      context.tsbid[0] = obj.ts;
+      context.vbid[0] = bid;
+    }
+    if(context.vbid[1] == noValue<double>() || bid > context.vbid[1]) {
+      context.tsbid[1] = obj.ts;
+      context.vbid[1] = bid;
+    }
+    
+    if(context.vask[0] == noValue<double>() || ask < context.vask[0]) {
+      context.tsask[0] = obj.ts;
+      context.vask[0] = ask;
+    }
+    if(context.vask[1] == noValue<double>() || ask > context.vask[1]) {
+      context.tsask[1] = obj.ts;
+      context.vask[1] = ask;
+    }
+    
+        // return true;
+    //}
+    
+    
+    
+    
     
 - title: onSetParameter
   content: |
-    std::map<std::string,std::string>::const_iterator ii_min_lots = params.find("min_lots");
+    //bool onSetParameter(const Parameters& param, Context& context) {
+        // process all parameters from the params map<std::string std::string> here
+    
+    std::map<std::string,std::string>::const_iterator ii_min_lots = params.find(pmin_lots);
     if (ii_min_lots != params.cend()) {
-      try {
-        context.min_lots = std::stoi(ii_min_lots->second) * 10000L;
-        if (context.min_lots < 10000L) context.min_lots = 10000L;
+      try{
+        context.min_lots = (uint16_t)std::stoi(ii_min_lots->second);
+        if (context.min_lots < 1) context.min_lots = 1;
       }
-      CATCH_CONVERTION_ERROR("min_lots",ii_min_lots->second)
-    }
-    std::map<std::string,std::string>::const_iterator ii_from_h = params.find("from_h");
-    if (ii_from_h != params.cend()) {
-      try {
-        context.from_h = (uint8_t)std::stoul(ii_from_h->second);
-        if (context.from_h > 23UL) context.from_h = 23UL;
-      }
-      CATCH_CONVERTION_ERROR("from_h",ii_from_h->second)
-    }
-    std::map<std::string,std::string>::const_iterator ii_from_m = params.find("from_m");
-    if (ii_from_m != params.cend()) {
-      try {
-        context.from_m = (uint8_t)std::stoul(ii_from_m->second);
-        if (context.from_m > 59UL) context.from_m = 59UL;
-      }
-      CATCH_CONVERTION_ERROR("from_m",ii_from_m->second)
-    }
-    std::map<std::string,std::string>::const_iterator ii_to_h = params.find("to_h");
-    if (ii_to_h != params.cend()) {
-      try {
-        context.to_h = (uint8_t)std::stoul(ii_to_h->second);
-        if (context.to_h > 23UL) context.to_h = 23UL;
-      }
-      CATCH_CONVERTION_ERROR("to_h",ii_to_h->second)
-    }
-    std::map<std::string,std::string>::const_iterator ii_to_m = params.find("to_m");
-    if (ii_to_m != params.cend()) {
-      try {
-        context.to_m = (uint8_t)std::stoul(ii_to_m->second);
-        if (context.to_m > 59UL) context.to_m = 59UL;
-      }
-      CATCH_CONVERTION_ERROR("to_m",ii_to_m->second)
-    }
-    std::map<std::string,std::string>::const_iterator ii_ts_step = params.find("ts_step");
-    if (ii_ts_step != params.cend()) {
-      try {
-        context.ts_step = std::stoul(ii_ts_step->second) * 60000000000UL;
-        if (context.ts_step < 60000000000UL) context.ts_step = 60000000000UL;
-      }
-      CATCH_CONVERTION_ERROR("ts_step",ii_ts_step->second)
+      CATCH_CONVERTION_ERROR(pmin_lots,ii_min_lots->second)
     }
     
-- title: onStart
-  content: |
-    tm ts_n = { 0, 0, 0, key.day % 100, (key.day % 10000) / 100 - 1, key.day / 10000 - 1900 };
-    context.ts_n = (uint64_t)mktime(&ts_n) * 1000000000UL;
+    std::map<std::string,std::string>::const_iterator ii_timeBin = params.find(pTimeBin);
+    if (ii_timeBin != params.cend()) {
+      try{
+        context.tb = std::stoull(ii_timeBin->second) * 60000000000UL;
+        if (context.tb < 60000000000UL) context.tb = 60000000000UL; else if (context.tb > 3600000000000UL) context.tb = 3600000000000UL;
+      }
+      CATCH_CONVERTION_ERROR(pTimeBin,ii_timeBin->second)
+    }
     
-    ts_n.tm_mday += 7 - ts_n.tm_wday;
-    mktime(&ts_n);
-    if (ts_n.tm_mon < 3 || ts_n.tm_mon > 9) context.ts_n -= 3600000000000UL; else context.ts_n -= 7200000000000UL;
+        //  return true;
+    //}
     
-    context.ts_e = context.ts_n;
-    context.ts_n += context.from_h * 3600000000000UL + context.from_m * 60000000000UL;
-    context.ts_e += context.to_h * 3600000000000UL + context.to_m * 60000000000UL;
     
-    context.ts_n += context.ts_step;
-    if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
+    
     
