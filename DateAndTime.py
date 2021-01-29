@@ -3,7 +3,7 @@ from SetUp import *
 
 class DateAndTime():
 
-    def __init__(self, from_date='2019-04-03', until_date='2021-01-31'):
+    def __init__(self, from_date='20190403', until_date='20210131'):
 
         self.from_date = from_date
         self.until_date = until_date
@@ -26,11 +26,13 @@ class DateAndTime():
         self.first_matu = pd.Timestamp(self.from_date).date()
         w = self.first_matu.weekday()
         # Friday is weekday 4
-        if w != 4:
-            self.first_matu = self.first_matu.replace(day=(15 + (4 - w) % 7))
+        if w >= 4:
+            self.first_matu = self.first_matu + datetime.timedelta(days=7-(w-4))
+        else:
+            self.first_matu = self.first_matu + datetime.timedelta(days=4-w)
         self.last_matu = (pd.Timestamp(until_date) + pd.DateOffset(years=2)).date().strftime('%Y-%m-%d')
         dates_expi = list(pd.date_range(self.first_matu, self.last_matu, freq='W'))
-        dates_expi = [elt - datetime.timedelta(2) for elt in dates_expi]
+        # dates_expi = [elt - datetime.timedelta(2) for elt in dates_expi]
         dates_expi = [datetime.datetime.combine(elt, self.closing_hours) for elt in dates_expi if elt.day in [15, 16, 17, 18, 19, 20, 21]]
         self.dates_expi = [self.get_last_working(elt) for elt in dates_expi]
         self.dates_expi_trim = [elt for elt in self.dates_expi if elt.month in [3, 6, 9, 12]]
