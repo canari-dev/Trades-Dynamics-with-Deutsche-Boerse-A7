@@ -245,7 +245,6 @@ class FittingSpline(Pricing):
         for reference_date in [elt for elt in self.DT.dates_list if (elt not in done_already)]:  #['20190606']
             print(reference_date)
             matulist = [elt for elt in self.DT.get_matu_list(reference_date) if elt != reference_date]
-            # matulist = ['20201218']
             for matu in matulist:
                 print('   ' + matu)
                 self.ini_day(reference_date, matu)
@@ -329,7 +328,7 @@ class FittingSpline(Pricing):
                     self.df_time[elt].fillna(0.9*self.FVU/100, inplace=True)  #100% is max for delta which will limit impact
             self.df_time[['bid_iv', 'bid_model_price', 'bid_vega', 'moneyness']] = self.df_time.apply(lambda x: self.pcal1(x, 'bid'), axis=1, result_type='expand')
             self.df_time[['ask_iv', 'ask_model_price', 'ask_vega', 'moneyness']] = self.df_time.apply(lambda x: self.pcal1(x, 'ask'), axis=1, result_type='expand')
-            self.df_time.dropna(inplace=True)
+            self.df_time.dropna(subset=['bid_iv', 'ask_iv'], inplace=True)
 
         if (type(self.df_lo) == pd.core.frame.DataFrame) and (self.df_lo.shape[0] >= 5) and (type(self.df_time) == pd.core.frame.DataFrame) and (self.df_time.shape[0] >= 5):
                 with warnings.catch_warnings():
@@ -473,7 +472,11 @@ class FittingSpline(Pricing):
         plt.show()
 
 if __name__ == '__main__':
-    udl = 'DBK'
-    FS = FittingSpline(udl)
+    udl = 'DAI'
+    reference_date = '20210105'
+    folder1 = 'D:/Users/GitHub/TradesDynamics/processed'
+    folder2 = 'D:/Users/GitHub/TradesDynamics/parameters'
+    DT = DateAndTime(reference_date, reference_date)
+    FS = FittingSpline(udl, DT, folder1, folder2)
     FS.fit_all()
-    FS.graph("20190403", "20190920")
+    # FS.graph("20190403", "20190920")

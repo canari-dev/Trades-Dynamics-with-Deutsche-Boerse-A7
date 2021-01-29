@@ -2,7 +2,7 @@ from SetUp import *
 from PricingAndCalibration import Pricing
 from Clustering import Clustering
 from matplotlib.lines import Line2D
-
+from DateAndTime import DateAndTime
 
 class TradeFlesh(Pricing):
 
@@ -240,8 +240,12 @@ class TradeFlesh(Pricing):
 
 
 if __name__ == '__main__':
-    udl = 'DBK'
-    TF = TradeFlesh(udl)
+    udl = 'DAI'
+    reference_date = '20210105'
+    folder1 = 'D:/Users/GitHub/TradesDynamics/processed'
+    folder2 = 'D:/Users/GitHub/TradesDynamics/parameters'
+    DT = DateAndTime(reference_date, reference_date)
+    TF = TradeFlesh(udl, DT, folder1, folder2)
     TF.pct_aggressivity()
     TF.graph_aggressivity('20190710')
     TF.get_intensity()
