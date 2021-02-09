@@ -44,4 +44,21 @@ You will also need to download the python files provided in this git :
 DateAndTime, PricingAnd Calibration, Clustering, TradeFlesh, SetUp
 
 
-![plot](./images/Vol calibration.png)
+Here is the kind of graph that you can generate. (More details in the Jupyter Notebook)
+Vol Calibration:
+![plot](./images/Vol_Calibration.png)
+
+Market Prices vs Faire Prices
+![plot](./images/Fair_Prices.png)
+
+Aggressivity Rating
+![plot](./images/Aggressivity_Rating.png)
+
+Trades Dynamics
+![plot](./images/Trades_Dynamics.png)
+
+Clustering Algo
+![plot](./images/Clustering_Algo.png)
+
+Selected Trades
+![plot](./images/Selected_Trades.png)
