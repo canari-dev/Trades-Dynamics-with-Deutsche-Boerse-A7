@@ -44,4 +44,4 @@ You will also need to download the python files provided in this git :
 DateAndTime, PricingAnd Calibration, Clustering, TradeFlesh, SetUp
 
 
-![plot](./images/Vol calibration.png)
+![plot](./images/VolCalibration.png)
