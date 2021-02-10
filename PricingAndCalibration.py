@@ -144,7 +144,7 @@ class Pricing():
 
     def pcal1(self, opt, field=''):
         r = 0
-        moneyness = math.log(opt.StrikePrice / opt.FVU * self.FwdRatio)
+        moneyness = math.log(opt.StrikePrice / (opt.FVU * self.FwdRatio))
 
         if field == 'bid':
             sigma = float(min(200, max(10, self.vol_spline_bid(moneyness))))
