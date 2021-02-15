@@ -1,4 +1,4 @@
-# Trades-Dynamics-(requires-Deutsche-Boerse-A7-access)
+# Trades Dynamics (requires Deutsche Boerse A7 access)
 ## Get a sense of what's driving the equity options market ##
 
 ### Abstract : ###
