@@ -1,7 +1,7 @@
 # Trades-Dynamics-(requires-Deutsche-Boerse-A7-access)
-Get a sense of what's driving the equity options market
+##Get a sense of what's driving the equity options market##
 
-Abstract :
+###Abstract :###
 It is easy to miss new price-relevant information when trading Equity Options.
 Trade patterns can alert traders that market assumptions are shifting.
 They can also inform on the arrival of large orders in an illiquid market.
@@ -28,7 +28,7 @@ This metric, among others, will then be used to identify clusters of similar tra
 
 
 
-How to proceed :
+###How to proceed :###
 
 You need a Deutsche Boerse A7 subscription in order to access intraday data.
 Once you have your API key, you can run the Trades_Dynamics Jupyter Notebook provided here.
