@@ -1,7 +1,7 @@
 # Trades-Dynamics-(requires-Deutsche-Boerse-A7-access)
 ##Get a sense of what's driving the equity options market##
 
-###Abstract :###
+Markup : ###Abstract :###
 It is easy to miss new price-relevant information when trading Equity Options.
 Trade patterns can alert traders that market assumptions are shifting.
 They can also inform on the arrival of large orders in an illiquid market.
