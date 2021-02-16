@@ -144,7 +144,7 @@ class Pricing():
 
     def pcal1(self, opt, field=''):
         r = 0
-        moneyness = math.log(opt.StrikePrice / opt.FVU * self.FwdRatio)
+        moneyness = math.log(opt.StrikePrice / (opt.FVU * self.FwdRatio))
 
         if field == 'bid':
             sigma = float(min(200, max(10, self.vol_spline_bid(moneyness))))
@@ -288,7 +288,7 @@ class FittingSpline(Pricing):
             self.FVU = self.df.FVU[0]
             # self.T = time_between(self.present_date, self.maturity_date)
             self.T = self.DT.cal.businessDaysBetween(self.d1, self.d2) / 252.0
-            self.df['moneyness_T'] = self.df.apply(lambda opt: math.log(opt.StrikePrice / opt.FVU * 0.98)/(max(3.0/12.0, self.T)**0.5), axis='columns')
+            self.df['moneyness_T'] = self.df.apply(lambda opt: math.log(opt.StrikePrice / (opt.FVU * 0.98))/(max(3.0/12.0, self.T)**0.5), axis='columns')
             self.df = self.df.loc[(self.df.moneyness_T > self.moneyness_range[0]) & (self.df.moneyness_T < self.moneyness_range[1])]
 
 
@@ -419,7 +419,7 @@ class FittingSpline(Pricing):
         self.df_graph.dropna(subset=['spline_bid', 'spline_ask'], inplace=True)
         selected_slices = [elt for elt in selected_slices if elt in self.df_graph.index]
 
-        self.df_graph['moneyness'] = self.df_graph.apply(lambda opt: math.log(opt.StrikePrice / opt.FVU * opt.FwdRatio), axis='columns') # math.log(opt.StrikePrice / opt.FVU * opt.FwdRatio)
+        self.df_graph['moneyness'] = self.df_graph.apply(lambda opt: math.log(opt.StrikePrice / (opt.FVU * opt.FwdRatio)), axis='columns') # math.log(opt.StrikePrice / opt.FVU * opt.FwdRatio)
 
         self.df_graph['bid_iv'] = self.df_graph.apply(lambda opt: float(opt.spline_bid(opt.moneyness)), axis='columns')
         self.df_graph['ask_iv'] = self.df_graph.apply(lambda opt: float(opt.spline_ask(opt.moneyness)), axis='columns')

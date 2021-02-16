@@ -72,7 +72,7 @@ class TradeFlesh(Pricing):
         self.df_trades.loc[self.df_trades.pricable, 'pricable'] = dfsub.apply(lambda x: (x.calib_ts < 60*5) and (x.bidentry != pd.Timestamp('1970-01-01 00:00:00')) and (x.askentry != pd.Timestamp('1970-01-01 00:00:00')), axis=1)
 
         # eliminate far OTM options
-        self.df_trades.loc[self.df_trades.pricable, 'moneyness'] = self.df_trades.loc[self.df_trades.pricable].apply(lambda opt: math.log(opt.StrikePrice / opt.FVU * opt.FwdRatio), axis='columns')
+        self.df_trades.loc[self.df_trades.pricable, 'moneyness'] = self.df_trades.loc[self.df_trades.pricable].apply(lambda opt: math.log(opt.StrikePrice / (opt.FVU * opt.FwdRatio)), axis='columns')
         self.df_trades.loc[self.df_trades.pricable, 'moneyness_T'] = self.df_trades.loc[self.df_trades.pricable].apply(lambda opt: opt.moneyness/(max(3.0/12.0, opt['T'])**0.5), axis='columns')
         self.df_trades.loc[self.df_trades.pricable, 'pricable'] = self.df_trades.loc[self.df_trades.pricable].apply(lambda opt: (opt.moneyness_T > self.moneyness_range[0]) and (opt.moneyness_T < self.moneyness_range[1]), axis='columns')
 

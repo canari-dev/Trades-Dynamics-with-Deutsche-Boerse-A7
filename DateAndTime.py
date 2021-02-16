@@ -1,5 +1,5 @@
 from SetUp import *
-
+print('loading DT')
 
 class DateAndTime():
 

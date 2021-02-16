@@ -1,0 +1,223 @@
+- title: Config
+  content: |
+    MDA::Config {
+      "minsize_level_tb",
+      "aggregated upto finding <min_lots> as quantity",
+      {
+        { "min_lots", { "number of lots <min_lots> (<min_lots> > 0)", Parameter::Type::Int32, "1" } },
+        { "from_h", { "from hour (0 <= <from_h> < 24) in CET time zone", Parameter::Type::Int8, "9" } },
+        { "from_m", { "from minute (0 <= <from_m> < 60)", Parameter::Type::Int8, "0" } },
+        { "to_h", { "to hour (0 <= <to_h> < 24) in CET time zone", Parameter::Type::Int8, "17" } },
+        { "to_m", { "to minute (0 <= <to_m> < 60)", Parameter::Type::Int8, "30" } },
+        { "ts_step", { "step in minutes (<step_m> > 0)", Parameter::Type::Int32, "15" } }
+      },
+      {
+        {
+          "price",
+          "vwap price",
+          ResultSet::Type::Series,
+          {
+            { "ts", "timestamp", Result::Type::Timestamp },
+            { "bid", "bid", Result::Type::Double },
+            { "ask", "ask", Result::Type::Double }
+          }
+        },
+        {
+          "message",
+          "parameter conversion error message",
+          ResultSet::Type::Value,
+          {
+            { "text", "error message", Result::Type::String }
+          }
+        }
+      }
+    }
+    
+    
+- title: Context.h
+  content: |
+    #include <eobi/EobiUtil.h>
+    #include <util/novalue.h>
+    
+    #define NO_VALUE_DOUBLE noValue<double>()
+    #define PRC_DCM 100000000.0
+    
+    #define CATCH_CONVERTION_ERROR(pn, p) \
+    catch (const std::invalid_argument& ia) { \
+      if (context.message.size() > 0) context.message.append("\n"); \
+      context.message.append("Invalid argument exception when parsing ").append(pn).append(" \'").append(p).append("\' parameter; using default value."); \
+      setResultmessage(context.message); \
+    } \
+    catch (const std::out_of_range& oor) { \
+      if (context.message.size() > 0) context.message.append("\n"); \
+      context.message.append("Out-of-range exception when parsing ").append(pn).append(" \'").append(p).append("\' parameter; using default value."); \
+      setResultmessage(context.message); \
+    }
+    
+    struct Context {
+    public:
+      int64_t min_lots = 10000L;
+      uint8_t from_h = 9;
+      uint8_t from_m = 0;
+      uint8_t to_h = 17;
+      uint8_t to_m = 30;
+      uint64_t ts_e, ts_n;
+      uint64_t ts_step = 900000000000UL;
+      
+      uint64_t ts = NO_VALUE_ULONG;
+      double bid, ask;
+      
+      std::string message = "";
+    };
+    
+    
+- title: onComplete
+  content: |
+    if (context.ts != NO_VALUE_ULONG) addResultprice(context.ts_n, context.bid != NO_VALUE_DOUBLE ? context.bid / PRC_DCM : NO_VALUE_DOUBLE, context.ask != NO_VALUE_DOUBLE ? context.ask / PRC_DCM : NO_VALUE_DOUBLE);
+    
+    
+- title: onOrderbook
+  content: |
+    //First we check if we have passed an observation mark and if so, we will add restult and increment ts_n
+    if (context.ts != NO_VALUE_ULONG) {
+      if (obj.ts > context.ts_n) {
+        addResultprice(context.ts_n, context.bid != NO_VALUE_DOUBLE ? context.bid / PRC_DCM : NO_VALUE_DOUBLE, context.ask != NO_VALUE_DOUBLE ? context.ask / PRC_DCM : NO_VALUE_DOUBLE);
+        if (context.ts_n < context.ts_e) {
+          context.ts_n += context.ts_step;
+          if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
+          while (obj.ts > context.ts_n) { //let's see how many observation marks we have stepped over at onnce
+            addResultprice(context.ts_n, context.bid != NO_VALUE_DOUBLE ? context.bid / PRC_DCM : NO_VALUE_DOUBLE, context.ask != NO_VALUE_DOUBLE ? context.ask / PRC_DCM : NO_VALUE_DOUBLE);
+            if (context.ts_n < context.ts_e) {
+              context.ts_n += context.ts_step;
+              if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
+            } else break;
+          }
+        }
+      }
+    } else {
+      while (obj.ts > context.ts_n) {
+        if (context.ts_n < context.ts_e) {
+          context.ts_n += context.ts_step;
+          if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
+        } else break;
+      }
+    }
+    
+    //now we compute context.bid and context.ask going down the order book until finding the desired size
+    if (obj.ts > context.ts_e) context.ts = NO_VALUE_ULONG;
+    else {
+      context.ts = obj.ts;
+      
+      const Eobi::Orderbook::BidMap& bids = obj.getBids();
+      const Eobi::Orderbook::AskMap& asks = obj.getAsks();
+      
+      context.bid = context.ask = NO_VALUE_DOUBLE;
+      
+      int64_t size = 0L;
+      int64_t this_size;
+      
+      auto it_bids = bids.cbegin();
+      while (it_bids != bids.cend()) {
+        if (context.bid == NO_VALUE_DOUBLE) {
+          context.bid = it_bids->first;
+          size = it_bids->second->qty();
+        } else {
+          this_size = std::min(it_bids->second->qty(), context.min_lots - size);
+          context.bid = context.bid * size + it_bids->first * this_size;
+          size += this_size;
+          context.bid /= size;
+        }
+        if (size < context.min_lots) ++it_bids; else break;
+      }
+      if (size < context.min_lots) context.bid = NO_VALUE_DOUBLE;
+        
+      size = 0L;
+      auto it_asks = asks.cbegin();
+      while (it_asks != asks.cend()) {
+        if (context.ask == NO_VALUE_DOUBLE) {
+          context.ask = it_asks->first;
+          size = it_asks->second->qty();
+        } else {
+          this_size = std::min(it_asks->second->qty(), context.min_lots - size);
+          context.ask = context.ask * size + it_asks->first * this_size;
+          size += this_size;
+          context.ask /= size;
+        }
+        if (size < context.min_lots) ++it_asks; else break;
+      }
+      if (size < context.min_lots) context.ask = NO_VALUE_DOUBLE;
+    }
+    
+    
+- title: onSetParameter
+  content: |
+    std::map<std::string,std::string>::const_iterator ii_min_lots = params.find("min_lots");
+    if (ii_min_lots != params.cend()) {
+      try {
+        context.min_lots = std::stoi(ii_min_lots->second) * 10000L;
+        if (context.min_lots < 10000L) context.min_lots = 10000L;
+      }
+      CATCH_CONVERTION_ERROR("min_lots",ii_min_lots->second)
+    }
+    std::map<std::string,std::string>::const_iterator ii_from_h = params.find("from_h");
+    if (ii_from_h != params.cend()) {
+      try {
+        context.from_h = (uint8_t)std::stoul(ii_from_h->second);
+        if (context.from_h > 23UL) context.from_h = 23UL;
+      }
+      CATCH_CONVERTION_ERROR("from_h",ii_from_h->second)
+    }
+    std::map<std::string,std::string>::const_iterator ii_from_m = params.find("from_m");
+    if (ii_from_m != params.cend()) {
+      try {
+        context.from_m = (uint8_t)std::stoul(ii_from_m->second);
+        if (context.from_m > 59UL) context.from_m = 59UL;
+      }
+      CATCH_CONVERTION_ERROR("from_m",ii_from_m->second)
+    }
+    std::map<std::string,std::string>::const_iterator ii_to_h = params.find("to_h");
+    if (ii_to_h != params.cend()) {
+      try {
+        context.to_h = (uint8_t)std::stoul(ii_to_h->second);
+        if (context.to_h > 23UL) context.to_h = 23UL;
+      }
+      CATCH_CONVERTION_ERROR("to_h",ii_to_h->second)
+    }
+    std::map<std::string,std::string>::const_iterator ii_to_m = params.find("to_m");
+    if (ii_to_m != params.cend()) {
+      try {
+        context.to_m = (uint8_t)std::stoul(ii_to_m->second);
+        if (context.to_m > 59UL) context.to_m = 59UL;
+      }
+      CATCH_CONVERTION_ERROR("to_m",ii_to_m->second)
+    }
+    std::map<std::string,std::string>::const_iterator ii_ts_step = params.find("ts_step");
+    if (ii_ts_step != params.cend()) {
+      try {
+        context.ts_step = std::stoul(ii_ts_step->second) * 60000000000UL;
+        if (context.ts_step < 60000000000UL) context.ts_step = 60000000000UL;
+      }
+      CATCH_CONVERTION_ERROR("ts_step",ii_ts_step->second)
+    }
+    
+    
+- title: onStart
+  content: |
+    tm ts_n = { 0, 0, 0, key.day % 100, (key.day % 10000) / 100 - 1, key.day / 10000 - 1900 };
+    context.ts_n = (uint64_t)mktime(&ts_n) * 1000000000UL;
+    
+    ts_n.tm_mday += 7 - ts_n.tm_wday;
+    mktime(&ts_n);
+    if (ts_n.tm_mon < 3 || ts_n.tm_mon > 9) context.ts_n -= 3600000000000UL; else context.ts_n -= 7200000000000UL;
+    //deals with winter-summer time
+    
+    context.ts_e = context.ts_n;
+    context.ts_n += context.from_h * 3600000000000UL + context.from_m * 60000000000UL;
+    context.ts_e += context.to_h * 3600000000000UL + context.to_m * 60000000000UL;
+    
+    context.ts_n += context.ts_step;
+    if (context.ts_n > context.ts_e) context.ts_n = context.ts_e;
+    
+    //ts_n is the time of first observation and will be increased bu ts_step
+    //ts_e is the end of observation time
+    

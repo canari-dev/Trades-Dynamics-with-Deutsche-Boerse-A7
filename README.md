@@ -1,34 +1,37 @@
-# Trades-Dynamics-(requires-Deutsche-Boerse-A7-access)
-Get a feel of trades driving the equity options market
+# Trades Dynamics (requires Deutsche Boerse A7 access)
+## Get a sense of what's driving the equity options market ##
 
-Abstract :
-It is often difficult to know what's going on in the Equity Options market.
+### Abstract : ###
+It is easy to miss new price-relevant information when trading Equity Options.
+Trade patterns can alert traders that market assumptions are shifting.
+They can also inform on the arrival of large orders in an illiquid market.
+This project aims to detect trading patterns in order to allow traders to get an idea of what's going on.
 
-But it is especially important to detect even small trading patterns because it's easy to miss new information
-which would be relevant for options pricing. Trades can reveal that something is going on.
+One important aspect of a trade analysis is to spot the "interest" side of the trade. Whether the aggressor was the buyer or the seller, it doesn't tell us who was actually crossing the spread to make the trade happen. 
+To figure that out, we will first calibrate a volatility surface in order to get a theoretical bid and ask price, undisturbed by local (ie. strike specific) microstructure action. 
 
-One important aspect of a trade analysis is the interest behind it. Whether the aggressor was the buyer or the seller,
-it  doesn't tell us who was actually crossing the spread to make the trade happen (if any). To figure out if the interest
-was the buyer or the seller and how aggressive it was, we will first calibrate a volatility surface in order to get
-a theoretical bid and offer price, undisturbed by local (ie. strike specific) microstructure action. The aggressivity 
-parameter is defined as such :
+We will then calculate an "aggressivity" indicator, defined as follows :
 
-aggressivity = min(1, max(-1, (traded_price - mid_theo) / half_theo_spread))
+aggressivity = min(1, max(-1, (traded_price - mid_theo_price) / half_theo_spread))
 
-NB : aggressivity is negative for selling interest and positive for buying ones.
+NB : The aggressivity is negative for selling interest and positive for buying ones.
 
-This theoretical price will then be used in conjunction with the vega of the trade to determine the intensity of a
-a trade. It is defined as :
+This indicator will then be used in conjunction with the vega of the trade to determine the "intensity" of each trade.
+It is defined as :
 
 intensity = vega * aggressivity
 
-This metrics among others will then be used to identify clusters of similar trades. These clusters will in turn be sorted
-by vega_aggressivity in order to be able to report on the most remarkable trade action in the period.
+Indeed, interesting trades are the ones with a large vega and a clear side.
+
+This metric, among others, will then be used to identify clusters of similar trades. These clusters will in turn be sorted by intensity in order to show the most remarkable trade actions in the period.
 
 
-How to proceed :
-You must first get a Deutsche Boerse A7 subscription in ortder to access intraday data.
-Once you have your API key, you can run the Trades Dynamics Jupyter Notebook.
+
+
+### How to proceed : ###
+
+You need a Deutsche Boerse A7 subscription in order to access intraday data.
+Once you have your API key, you can run the Trades_Dynamics Jupyter Notebook provided here.
 
 You will need a Python 3.8 interpreter with the following packages :
 - QuantLib
@@ -37,8 +40,38 @@ You will need a Python 3.8 interpreter with the following packages :
 - sklearn, scipy
 - requests, warnings
 
-You will a need to download the ad hoc classes provided in this git :
-DateAndTime, PricingAnd Calibration, Clustering, TradeFlesh
+You will also need to download the python files provided in this git :
+DateAndTime, PricingAnd Calibration, Clustering, TradeFlesh, SetUp
 
 
+Here is the kind of graph that you can generate. (More details in the Jupyter Notebook)
 
+
+Vol Calibration:
+
+![plot](./images/Vol_Calibration.png)
+
+
+Market Prices vs Faire Prices
+
+![plot](./images/Fair_Prices.png)
+
+
+Aggressivity Rating
+
+![plot](./images/Aggressivity_Rating.png)
+
+
+Trades Dynamics
+
+![plot](./images/Trades_Dynamics.png)
+
+
+Clustering Algo
+
+![plot](./images/Clustering_Algo.png)
+
+
+Selected Trades
+
+![plot](./images/Selected_Trades.png)
