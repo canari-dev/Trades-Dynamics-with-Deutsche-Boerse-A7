@@ -30,8 +30,10 @@ This metric, among others, will then be used to identify clusters of similar tra
 
 ### How to proceed : ###
 
-You need a Deutsche Boerse A7 subscription in order to access intraday data.
-Once you have your API key, you can run the Trades_Dynamics Jupyter Notebook provided here.
+You need a Deutsche Boerse A7 subscription in order to access intraday data and then fit a volatility surface for each timestamp.
+In order to achieve that, please refer to the preliminary git :
+https://github.com/canari-dev/Calibrating-implicit-volatility-surface-with-Deutsche-Boerse-A7
+
 
 You will need a Python 3.8 interpreter with the following packages :
 - QuantLib
@@ -41,7 +43,7 @@ You will need a Python 3.8 interpreter with the following packages :
 - requests, warnings
 
 You will also need to download the python files provided in this git :
-DateAndTime, PricingAnd Calibration, Clustering, TradeFlesh, SetUp
+DateAndTime.py, PricingAndCalibration.py, Clustering.py, TradeFlesh.py, SetUp.py
 
 
 Here is the kind of graph that you can generate. (More details in the Jupyter Notebook)
