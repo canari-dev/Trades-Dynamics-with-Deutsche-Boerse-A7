@@ -30,15 +30,14 @@ This metric, among others, will then be used to identify clusters of similar tra
 
 ### How to proceed : ###
 
-You need a Deutsche Boerse A7 subscription in order to access intraday data and then fit a volatility surface for each timestamp.
+In order to run this project, you need a Deutsche Boerse A7 subscription to access intraday data and then fit a volatility surface for each timestamp.
 For that, please refer to the preliminary git :
 https://github.com/a7/Calibrating-implicit-volatility-surface-with-Deutsche-Boerse-A7
 
-This projects builds on the result of the above mentionned calibration git. 
-The output of this preliminary git will be a Params_xxx.pkl file where xxx is the code of the calibrated underlying (such as ALV for Allianz).
+Running this git is a pre-requisite as it will generate a data file containing a volatility surface :Params_xxx.pkl where xxx is the code of the calibrated underlying (such as 'ALV' for Allianz).
 This pickle file must be placed in a folder referenced in the SetUp.py file (see below)
 
-You will need a Python 3.8 interpreter with the following packages :
+You will also need a Python 3.8 or above interpreter with the following packages :
 - QuantLib
 - numpy, pandas
 - math, datetime, matplotlib
@@ -49,7 +48,7 @@ You will also need to download the python files provided in this git :
 DateAndTime.py, PricingAndCalibration.py, Clustering.py, TradeFlesh.py, SetUp.py
 
 
-Here is the kind of graph that you can generate. (More details in the Jupyter Notebook)
+Here are the kind of graph that you can generate. (More details in the Jupyter Notebook)
 
 
 Aggressivity Rating
@@ -70,3 +69,6 @@ Clustering Algo
 Selected Trades
 
 ![plot](./images/Selected_Trades.png)
+
+
+_Written by canari.dev (www.canari.dev)_
