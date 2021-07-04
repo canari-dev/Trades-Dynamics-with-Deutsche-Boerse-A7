@@ -1,8 +1,10 @@
-# Trades Dynamics (requires Deutsche Boerse A7 access)
+# Trades Dynamics (requires Deutsche Boerse A7 access) #
+_Canari.dev (www.canari.dev), March 2021_
+<br><br>
 ## Get a sense of what's driving the equity options market ##
 
 ### Abstract : ###
-It is easy to miss new price-relevant information when trading Equity Options.
+It is easy to miss price-relevant information when trading Equity Options.
 Trade patterns can alert traders that market assumptions are shifting.
 They can also inform on the arrival of large orders in an illiquid market.
 This project aims to detect trading patterns in order to allow traders to get an idea of what's going on.
@@ -30,11 +32,20 @@ This metric, among others, will then be used to identify clusters of similar tra
 
 ### How to proceed : ###
 
-In order to run this project, you need a Deutsche Boerse A7 subscription to access intraday data and then fit a volatility surface for each timestamp.
-For that, please refer to the preliminary git :
+**This project showcases the possibilities offered by the API of Deutsche Boerse's A7 service.
+You will need a valid A7 subscription to run it.<br>
+For this, please go to : <br>
+https://www.mds.deutsche-boerse.com/mds-en/analytics/A7-analytics-platform**
+
+**Once you have been registered as a A7 user, connect to the A7 website in order to get an API token :
+https://a7.deutsche-boerse.com/ <br>
+After logging in, click on the face icon next to your name on the top right of the page and select "API Token generation".**
+
+You will also need to run preliminary git in order to fit calibrate a volatility surface.
+For that, please refer to :
 https://github.com/a7/Calibrating-implicit-volatility-surface-with-Deutsche-Boerse-A7
 
-Running this git is a pre-requisite as it will generate a data file containing a volatility surface :Params_xxx.pkl where xxx is the code of the calibrated underlying (such as 'ALV' for Allianz).
+Running this git is a pre-requisite as it will generate a data file containing a volatility surface : Params_xxx.pkl where xxx is the code of the calibrated underlying (such as 'ALV' for Allianz).
 This pickle file must be placed in a folder referenced in the SetUp.py file (see below)
 
 You will also need a Python 3.8 or above interpreter with the following packages :
